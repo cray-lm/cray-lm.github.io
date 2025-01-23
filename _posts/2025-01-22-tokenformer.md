@@ -4,13 +4,13 @@
 
 Transformers, which form the backbone of most foundation models, face significant challenges when it comes to scaling. This is primarily due to their reliance on a set number of parameters within linear projections. When changes are made to the architecture, such as adjusting channel dimensions, it typically necessitates retraining the entire model from the beginning. This becomes increasingly problematic as models grow larger, as the computational costs associated with retraining become prohibitively expensive and unsustainable.
 
-To address these scaling issues, a new architecture called Tokenformer has been developed. Tokenformer is a fully attention-based model that expands upon the traditional use of attention mechanisms. In addition to using attention for computations between input tokens, Tokenformer also applies attention to the interactions between tokens and the model's parameters.
+To address these scaling issues, a new architecture called [Tokenformer](https://arxiv.org/abs/2410.23168) has been developed. Tokenformer is a fully attention-based model that expands upon the traditional use of attention mechanisms. In addition to using attention for computations between input tokens, Tokenformer also applies attention to the interactions between tokens and the model's parameters.
 
 The key innovation of Tokenformer lies in its treatment of model parameters as if they were tokens themselves. This approach allows for the replacement of all linear projections found in traditional Transformers with a novel token-parameter attention layer. In this layer, the input tokens function as queries, while the model parameters serve as keys and values.
 
 This reformulation of the Transformer architecture offers a significant advantage: it enables the model to be scaled up progressively and efficiently without the need for complete retraining from scratch. This ability to scale without full retraining represents a major step forward in addressing the computational challenges associated with developing and expanding large language models.
 
-To apply tokenformer to a model in Cray-LM, we follow an approach similar to LoRA (Low-Rank Adaptation) where token-parameter attention layers are added in parallel to the existing attention layers. This allows for the model to be incrementally scaled up without the need for full retraining. The number of parameters in the key-value pairs can be adjusted *after training* to control the model's capacity and performance.
+To apply tokenformer to a model in Craylm, we follow an approach similar to LoRA (Low-Rank Adaptation) where token-parameter attention layers are added in parallel to the existing attention layers. This allows for the model to be incrementally scaled up without the need for full retraining. The number of parameters in the key-value pairs can be adjusted *after training* to control the model's capacity and performance.
 
 Tokenformer is an innovative, fully attention-based architecture that addresses scaling challenges in traditional Transformers:
 
@@ -28,7 +28,7 @@ Key advantages:
 
 Tokenformer preserves inter-token computations while extending the Transformer architecture, offering a more flexible and efficient approach to large language model development.
 
-# LoRA (Low-Rank Adaptation) versus Tokenformer
+## LoRA (Low-Rank Adaptation) versus Tokenformer
 
 Tokenformer and LoRA are two different approaches for adapting large language models (LLMs).
 
@@ -40,11 +40,11 @@ In summary, while both methods aim to improve LLM adaptation, LoRA focuses on pa
 
 ## Our Implementation
 
-Cray-LM is a unified framework for training and inference of language models. Its primary objective is to seamlessly support novel modeling techniques across both training and inference phases. The framework's inference engine is based on vLLM, which imposes certain constraints on achieving this unified approach. This discussion outlines the implementation strategy for integrating Tokenformer into Cray-LM and provides specific details for both training and inference processes.
+Craylm is a unified framework for training and inference of language models. Its primary objective is to seamlessly support novel modeling techniques across both training and inference phases. The framework's inference engine is based on vLLM, which imposes certain constraints on achieving this unified approach. This discussion outlines the implementation strategy for integrating Tokenformer into Craylm and provides specific details for both training and inference processes.
 
 Tokenformer's architecture requires the integration of cross-attention based adapters to either the feed-forward (MLP) layers, the existing attention layers, or both. To accomplish this, a visitor pattern is implemented. This pattern, implemented by the TokenformerSurgeon class, traverses the underlying PyTorch graph, identifying MLP and attention layers within any given model network and wrapping them with Tokenformer adapters.
 
-The current implementation of Tokenformer in Cray-LM specifically targets Llama-based models.
+The current implementation of Tokenformer in Craylm specifically targets Llama-based models.
 
 ### Training with Tokenformer
 
@@ -54,11 +54,11 @@ To address this issue, the implementation extends the HuggingFace transformers L
 
 ### vLLM Inference with Tokenformer
 
-vLLM, the basis for Cray-LM's inference engine, does not rely on HuggingFace's transformers implementations for many of its models. Instead, it provides its own implementations in the vllm/model_executor/models directory.
+vLLM, the basis for Craylm's inference engine, does not rely on HuggingFace's transformers implementations for many of its models. Instead, it provides its own implementations in the vllm/model_executor/models directory.
 
 This architectural difference creates an incompatibility between vLLM and HuggingFace transformers. As a result, separate Tokenformer adapters were implemented for vLLM and HuggingFace transformers. These distinct implementations are necessary due to the different APIs for forward calls that need to be supported.
 
-The implementation details are visually represented in a UML diagram, which illustrates the relationships and structures of the components involved in supporting Tokenformer within the Cray-LM framework.
+The implementation details are visually represented in a UML diagram, which illustrates the relationships and structures of the components involved in supporting Tokenformer within the Craylm framework.
 
 ![Tokenformer UML](/images/Tokenformer.jpeg)
 
