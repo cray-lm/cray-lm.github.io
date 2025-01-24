@@ -1,0 +1,177 @@
+# Building ROCm Containers for Craylm: A Comprehensive Guide
+
+ROCm (Radeon Open Compute) provides an open-source software foundation for GPU computing on AMD hardware. In this guide, we'll walk through the process of building ROCm-enabled containers for Craylm, enabling you to leverage AMD GPUs for large language model training and inference.
+
+## Prerequisites
+
+Before we begin, ensure you have:
+
+- Docker installed on your system
+- An AMD GPU that supports ROCm (check the [ROCm Hardware Compatibility List](https://rocm.docs.amd.com/en/latest/release/gpu_os_support.html))
+- ROCm drivers installed on your host system
+- Access to the Craylm repository
+
+## Base Container Configuration
+
+First, let's create a Dockerfile that sets up the ROCm environment. Create a new file called `Dockerfile.rocm`:
+
+```dockerfile
+# Start with the ROCm base image
+FROM rocm/pytorch:latest
+
+# Setup the working directory
+ENV PATH="/opt/conda/envs/py_3.10/bin:$PATH"
+ENV CONDA_PREFIX=/opt/conda/envs/py_3.10
+
+ARG MAX_JOBS=4
+
+# Install additional dependencies
+RUN pip install uv
+
+```
+
+## Building the Craylm vLLM Components
+
+Next, we'll build the vLLM components for Craylm. Add these sections to your Dockerfile:
+
+```dockerfile
+
+RUN --mount=type=cache,target=/var/cache/apt \
+    apt-get update -y \
+    && apt-get install -y curl ccache git vim numactl gcc-12 g++-12 libomp-dev libnuma-dev \
+    && apt-get install -y ffmpeg libsm6 libxext6 libgl1 libdnnl-dev \
+    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12
+
+ARG INSTALL_ROOT=/app/cray
+
+COPY ./requirements.txt ${INSTALL_ROOT}/requirements.txt
+COPY ./test/requirements-pytest.txt ${INSTALL_ROOT}/requirements-pytest.txt
+COPY ./infra/requirements-vllm-build.txt ${INSTALL_ROOT}/requirements-vllm-build.txt
+
+RUN uv pip install --no-compile --no-cache-dir -r ${INSTALL_ROOT}/requirements.txt
+RUN uv pip install --no-compile --no-cache-dir -r ${INSTALL_ROOT}/requirements-vllm-build.txt
+RUN uv pip install --no-compile --no-cache-dir -r ${INSTALL_ROOT}/requirements-pytest.txt
+
+WORKDIR ${INSTALL_ROOT}
+
+COPY ./infra/cray_infra/vllm ${INSTALL_ROOT}/infra/cray_infra/vllm
+COPY ./infra/setup.py ${INSTALL_ROOT}/infra/cray_infra/setup.py
+
+COPY ./infra/CMakeLists.txt ${INSTALL_ROOT}/infra/cray_infra/CMakeLists.txt
+COPY ./infra/cmake ${INSTALL_ROOT}/infra/cray_infra/cmake
+COPY ./infra/csrc ${INSTALL_ROOT}/infra/cray_infra/csrc
+
+COPY ./infra/requirements-vllm.txt ${INSTALL_ROOT}/infra/cray_infra/requirements.txt
+
+WORKDIR ${INSTALL_ROOT}/infra/cray_infra
+
+ARG VLLM_TARGET_DEVICE=rocm
+ARG TORCH_CUDA_ARCH_LIST=gfx906 gfx908 gfx90a gfx940 gfx941 gfx942 gfx1030 gfx1100
+
+# Build vllm python package
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=cache,target=/root/.cache/ccache \
+    MAX_JOBS=${MAX_JOBS} TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} \
+    VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE} \
+    python ${INSTALL_ROOT}/infra/cray_infra/setup.py bdist_wheel && \
+    pip install ${INSTALL_ROOT}/infra/cray_infra/dist/*.whl && \
+    rm -rf ${INSTALL_ROOT}/infra/cray_infra/dist
+
+WORKDIR ${INSTALL_ROOT}
+
+```
+
+## Craylm Components and Configuration
+
+The final section includes craylm components and adds SLURM support for distributed training:
+
+```dockerfile
+RUN apt-get update -y  \
+    && apt-get install -y slurm-wlm libslurm-dev \
+    build-essential \
+    less curl wget net-tools vim iputils-ping \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build SLURM
+COPY ./infra/slurm_src ${INSTALL_ROOT}/infra/slurm_src
+RUN /app/cray/infra/slurm_src/compile.sh
+
+# Copy slurm config templates
+ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/infra"
+ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/sdk"
+ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/ml"
+
+ENV SLURM_CONF=${INSTALL_ROOT}/infra/slurm_configs/slurm.conf
+
+RUN mkdir -p ${INSTALL_ROOT}/jobs
+
+COPY ./infra ${INSTALL_ROOT}/infra
+COPY ./sdk ${INSTALL_ROOT}/sdk
+COPY ./test ${INSTALL_ROOT}/test
+COPY ./cray ${INSTALL_ROOT}/cray
+COPY ./ml ${INSTALL_ROOT}/ml
+COPY ./scripts ${INSTALL_ROOT}/scripts
+```
+
+## Building the Container
+
+You can build the container using Docker:
+
+```bash
+docker build -f Dockerfile.rocm \
+    --build-arg VLLM_TARGET_DEVICE=rocm \
+    -t cray-rocm:latest .
+```
+
+## Running Craylm with ROCm
+
+To start a development server on a system with AMD GPUs:
+
+```bash
+docker run -it --device=/dev/kfd --device=/dev/dri \
+    --security-opt seccomp=unconfined \
+    --group-add video \
+    -p 8000:8000 \
+    --entrypoint /app/cray/scripts/start_one_server.sh \
+    gdiamos/cray-rocm:latest
+```
+
+The key differences from the CPU or NVIDIA containers are:
+
+1. The `--device=/dev/kfd --device=/dev/dri` flags expose the AMD GPU devices
+2. Adding the container to the `video` group for GPU access
+3. Setting `seccomp=unconfined` for ROCm compatibility
+
+## Performance Considerations
+
+When running Craylm on AMD GPUs, consider these optimization tips:
+
+1. Ensure you're using the latest ROCm drivers for optimal performance
+2. Set appropriate memory limits based on your GPU's VRAM
+3. Use hip-specific environmental variables for fine-tuning:
+
+```bash
+export HIP_VISIBLE_DEVICES=0,1,2,3  # Specify which GPUs to use
+```
+
+## Troubleshooting
+
+Common issues and solutions:
+
+1. If you encounter "GPU device not found" errors, verify that:
+   - ROCm is properly installed on the host
+   - The container has access to GPU devices
+   - The user has proper permissions
+
+2. For memory-related issues:
+   - Check GPU memory usage with `rocm-smi`
+   - Adjust batch sizes and model configurations accordingly
+   - Monitor system memory usage alongside GPU memory
+
+## Conclusion
+
+Building ROCm containers for Craylm enables efficient use of AMD GPUs for machine learning workloads. By following this guide, you can create and deploy containers that leverage the full potential of AMD hardware for both training and inference tasks.
+
+For more information about Craylm and its capabilities, visit our [documentation](https://docs.cray-lm.com) or join our community on [GitHub](https://github.com/cray-lm/cray-lm).
+
+Remember to check for updates and new releases of both ROCm and Craylm to ensure you're using the latest features and optimizations.
