@@ -1,3 +1,7 @@
+---
+author: "Naila Farooqui"
+---
+
 # Tokenformer: A Scalable Transformer Architecture
 
 ## Background
