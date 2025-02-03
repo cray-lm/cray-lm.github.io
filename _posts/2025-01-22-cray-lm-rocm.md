@@ -154,6 +154,17 @@ When running Craylm on AMD GPUs, consider these optimization tips:
 export HIP_VISIBLE_DEVICES=0,1,2,3  # Specify which GPUs to use
 ```
 
+### vLLM engine performance settings
+vLLM provides a number of engine options which can be changed to improve performance. Refer to the vLLM Engine Args documentation for the complete list of vLLM engine options.
+
+Below is a list of a few of the key vLLM engine arguments for performance; these can be passed to the vLLM benchmark scripts:
+
+--max-model-len : Maximum context length supported by the model instance. Can be set to a lower value than model configuration value to improve performance and gpu memory utilization.
+--max-num-batched-tokens : The maximum prefill size, i.e., how many prompt tokens can be packed together in a single prefill. Set to a higher value to improve prefill performance at the cost of higher gpu memory utilization. 65536 works well for LLama models.
+--max-num-seqs : The maximum decode batch size (default 256). Using larger values will allow more prompts to be processed concurrently, resulting in increased throughput (possibly at the expense of higher latency). If the value is too large, there may not be enough GPU memory for the KV cache, resulting in requests getting preempted. The optimal value will depend on the GPU memory, model size, and maximum context length.
+--max-seq-len-to-capture : Maximum sequence length for which Hip-graphs are captured and utilized. It's recommended to use Hip-graphs for the best decode performance. The default value of this parameter is 8K, which is lower than the large context lengths supported by recent models such as LLama. Set this parameter to max-model-len or maximum context length supported by the model for best performance.
+--gpu-memory-utilization : The ratio of GPU memory reserved by a vLLM instance. Default value is 0.9. Increasing the value (potentially as high as 0.99) will increase the amount of memory available for KV cache. When running in graph mode (i.e. not using --enforce-eager), it may be necessary to use a slightly smaller value of 0.92 - 0.95 to ensure adequate memory is available for the HIP graph.
+
 ## Troubleshooting
 
 Common issues and solutions:
