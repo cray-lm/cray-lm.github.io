@@ -1,6 +1,6 @@
-# Building ROCm Containers for Craylm: A Comprehensive Guide
+# Building ROCm Containers for ScalarLM: A Comprehensive Guide
 
-ROCm (Radeon Open Compute) provides an open-source software foundation for GPU computing on AMD hardware. In this guide, we'll walk through the process of building ROCm-enabled containers for Craylm, enabling you to leverage AMD GPUs for large language model training and inference.
+ROCm (Radeon Open Compute) provides an open-source software foundation for GPU computing on AMD hardware. In this guide, we'll walk through the process of building ROCm-enabled containers for ScalarLM, enabling you to leverage AMD GPUs for large language model training and inference.
 
 ## Prerequisites
 
@@ -9,7 +9,7 @@ Before we begin, ensure you have:
 - Docker installed on your system
 - An AMD GPU that supports ROCm (check the [ROCm Hardware Compatibility List](https://rocm.docs.amd.com/en/latest/release/gpu_os_support.html))
 - ROCm drivers installed on your host system
-- Access to the Craylm repository
+- Access to the ScalarLM repository
 
 ## Base Container Configuration
 
@@ -30,9 +30,9 @@ RUN pip install uv
 
 ```
 
-## Building the Craylm vLLM Components
+## Building the ScalarLM vLLM Components
 
-Next, we'll build the vLLM components for Craylm. Add these sections to your Dockerfile:
+Next, we'll build the vLLM components for ScalarLM. Add these sections to your Dockerfile:
 
 ```dockerfile
 
@@ -81,7 +81,7 @@ WORKDIR ${INSTALL_ROOT}
 
 ```
 
-## Craylm Components and Configuration
+## ScalarLM Components and Configuration
 
 The final section includes craylm components and adds SLURM support for distributed training:
 
@@ -123,7 +123,7 @@ docker build -f Dockerfile.rocm \
     -t cray-rocm:latest .
 ```
 
-## Running Craylm with ROCm
+## Running ScalarLM with ROCm
 
 To start a development server on a system with AMD GPUs:
 
@@ -144,7 +144,7 @@ The key differences from the CPU or NVIDIA containers are:
 
 ## Performance Considerations
 
-When running Craylm on AMD GPUs, consider these optimization tips:
+When running ScalarLM on AMD GPUs, consider these optimization tips:
 
 1. Ensure you're using the latest ROCm drivers for optimal performance
 2. Set appropriate memory limits based on your GPU's VRAM
@@ -181,8 +181,8 @@ Common issues and solutions:
 
 ## Conclusion
 
-Building ROCm containers for Craylm enables efficient use of AMD GPUs for machine learning workloads. By following this guide, you can create and deploy containers that leverage the full potential of AMD hardware for both training and inference tasks.
+Building ROCm containers for ScalarLM enables efficient use of AMD GPUs for machine learning workloads. By following this guide, you can create and deploy containers that leverage the full potential of AMD hardware for both training and inference tasks.
 
-For more information about Craylm and its capabilities, visit our [documentation](https://docs.cray-lm.com) or join our community on [GitHub](https://github.com/cray-lm/cray-lm).
+For more information about ScalarLM and its capabilities, visit our [documentation](https://docs.scalarlm.com) or join our community on [GitHub](https://github.com/scalarlm/scalarlm).
 
-Remember to check for updates and new releases of both ROCm and Craylm to ensure you're using the latest features and optimizations.
+Remember to check for updates and new releases of both ROCm and ScalarLM to ensure you're using the latest features and optimizations.
