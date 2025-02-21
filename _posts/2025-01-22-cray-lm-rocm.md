@@ -17,7 +17,7 @@ First, let's create a Dockerfile that sets up the ROCm environment. Create a new
 
 ```dockerfile
 # Start with the ROCm vLLM base image
-FROM rocm/vllm-dev:latest
+FROM rocm/vllm-dev:20250124
 
 # Setup the working directory
 ENV PATH="/opt/conda/envs/py_3.10/bin:$PATH"
